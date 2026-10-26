@@ -2,40 +2,77 @@
 
 Play YouTube Shorts from Claude Code with `/shorts`. Browse the feed, watch and pause clips, like videos, and open a Short in your browser.
 
-This project is focused on Linux, especially Arch Linux. It supports Wayland and X11, Chromium and Firefox, and PipeWire, PulseAudio, or ALSA audio. The macOS code path is retained.
+cc-shorts supports Linux distributions using Wayland or X11, including Arch, Debian/Ubuntu, Fedora, openSUSE, and Alpine, as well as macOS. It supports Chromium-based browsers and Firefox. Linux audio uses PipeWire/PulseAudio when available and falls back to ALSA.
 
 ## Requirements
 
 - Claude Code running in a terminal. The Claude desktop app and IDE extensions do not support this player pane.
-- `yt-dlp`, FFmpeg, Python, and Deno. Deno helps yt-dlp solve YouTube JavaScript challenges.
+- `yt-dlp`, FFmpeg, Python 3, and Deno. Deno helps yt-dlp solve YouTube JavaScript challenges; playback may still work without it.
 - A browser signed in to YouTube. Chromium or Firefox are recommended.
-- For sharp inline frames, use Kitty or Ghostty. cc-shorts uses Claude Code's Kitty graphics image path. Foot supports Sixel instead, so it uses the lower-resolution colored-block fallback.
-- On Linux, `xdg-utils` is needed for opening Shorts in your default browser. PipeWire with `pipewire-pulse` is recommended; PulseAudio and ALSA are supported too.
+- On Linux, `xdg-utils` (for `xdg-open`) is needed to open Shorts in your default browser.
+- For sharp inline frames, use Kitty or Ghostty. Claude Code's inline image path works in these terminals. Foot uses Sixel, which the current Claude Code image pane does not render, so Foot displays the lower-resolution colored-block fallback.
+- A working audio service: PipeWire with its PulseAudio compatibility service (`pipewire-pulse`), PulseAudio, or ALSA.
 
-## Install on Arch Linux
+## Install dependencies on Linux
 
-Install the player tools and the browsers you plan to use:
+Install the equivalent packages with your distribution's package manager. Examples for common distributions follow; omit `chromium` or `firefox` if you do not use that browser.
+
+### Debian and Ubuntu
 
 ```sh
-sudo pacman -S --needed yt-dlp ffmpeg deno xdg-utils chromium firefox pipewire-pulse kitty
+sudo apt update
+sudo apt install yt-dlp ffmpeg deno xdg-utils firefox-esr chromium
 ```
 
-You can omit `chromium` or `firefox` if you already have a supported browser. For PulseAudio, install `pulseaudio` instead of `pipewire-pulse`. If neither PulseAudio nor PipeWire is available, cc-shorts uses FFmpeg's ALSA output.
+Ubuntu may call the browser package `chromium-browser`, and some releases provide Chromium as a Snap. If `deno` is unavailable in your release's repositories, install Deno using its [official Linux instructions](https://docs.deno.com/runtime/getting_started/installation/).
 
-For Chromium cookie decryption on GNOME, install and unlock the Secret Service keyring and yt-dlp's optional binding:
+### Fedora
 
 ```sh
-sudo pacman -S --needed gnome-keyring python-secretstorage
+sudo dnf install yt-dlp deno xdg-utils firefox chromium
 ```
 
-On KDE Plasma, make sure KWallet is installed and unlocked. Firefox does not require a desktop keyring and is the simplest option if Chromium cookies cannot be decrypted.
+For full FFmpeg support, enable RPM Fusion and install its FFmpeg package as described by [RPM Fusion](https://rpmfusion.org/Howto/Multimedia). Fedora's default `ffmpeg-free` may lack codecs needed by some videos.
 
-## Run from this folder
-
-Open Kitty, then run:
+### Arch Linux and Arch-based distributions
 
 ```sh
-cd /path/to/cc-shorts
+sudo pacman -S --needed yt-dlp ffmpeg deno xdg-utils firefox chromium
+```
+
+If you use an AUR helper such as `yay`, use it for packages that are only available from the AUR; the packages above are available from the standard repositories.
+
+### openSUSE
+
+```sh
+sudo zypper install yt-dlp ffmpeg deno xdg-utils MozillaFirefox chromium
+```
+
+Some openSUSE multimedia packages require the Packman repository. If your FFmpeg build lacks PulseAudio or ALSA output, install a full FFmpeg build from your enabled multimedia repository.
+
+### Alpine Linux
+
+```sh
+sudo apk add yt-dlp ffmpeg deno xdg-utils firefox chromium
+```
+
+Package availability can vary by release and enabled repository. If a package is missing, use the distribution's official package search or install that tool from its upstream instructions.
+
+### Audio setup
+
+PipeWire with `pipewire-pulse` is recommended. On distributions that package the PulseAudio compatibility service separately, install and enable it using the distribution's service manager. Native PulseAudio and ALSA are also supported. cc-shorts checks the FFmpeg build's audio outputs and uses PulseAudio/PipeWire or ALSA accordingly.
+
+### Chromium cookie access
+
+Chromium may encrypt cookies with the desktop keyring. On GNOME, make sure GNOME Keyring's Secret Service is installed and unlocked; on KDE Plasma, make sure KWallet is installed and unlocked. Some distributions require yt-dlp's optional Python SecretStorage package. Firefox does not depend on the desktop keyring and is a useful choice if Chromium cookie decryption fails.
+
+## Run cc-shorts
+
+Clone the repository (or use your local copy), then launch Claude Code from Kitty or Ghostty for the sharpest inline video:
+
+```sh
+git clone <REPOSITORY_URL> ~/cc-shorts
+cd ~/cc-shorts
 claude --plugin-dir .
 ```
 
@@ -43,15 +80,19 @@ Inside Claude Code:
 
 1. Run `/shorts`.
 2. Choose Chromium or Firefox, then sign in to YouTube in that browser if needed.
-3. Run `/shorts` again if setup or browser sign-in was not complete.
+3. Run `/shorts` again if browser sign-in or setup was not complete.
 
-To use a local clone from any directory, pass its full path:
+You can start Claude Code from another directory by passing the full plugin path:
 
 ```sh
-claude --plugin-dir /path/to/cc-shorts
+claude --plugin-dir ~/cc-shorts
 ```
 
-Start Claude Code in Kitty or Ghostty for higher-resolution inline frames. Starting a fresh Claude Code session retries image rendering if the previous terminal had fallen back to colored blocks. The current frame and download width is capped at 480 pixels.
+The current frame and download width is capped at 480 pixels. The plugin also retains its macOS code path; install its tools with Homebrew as needed:
+
+```sh
+brew install yt-dlp ffmpeg deno
+```
 
 ## Controls
 
@@ -81,9 +122,9 @@ Click the channel name below the video to open the Short as well. Closing the pa
 
 - **Signed out:** sign in to YouTube in the selected browser, then run `/shorts browser` and select it again.
 - **Cannot read Chromium cookies:** unlock GNOME Keyring or KWallet. If the error persists, use Firefox with `/shorts browser`.
-- **The image looks like colored blocks:** launch Claude Code from Kitty or Ghostty, which support the graphics protocol used by the inline image path. Foot uses Sixel and currently gets the block fallback.
+- **The image looks like colored blocks:** launch Claude Code from Kitty or Ghostty, which support the inline image protocol used by Claude Code. Foot's Sixel support is not currently used by Claude Code's image pane.
 - **Downloads fail:** check the network and press `j` to retry.
-- **A required tool appears missing:** Claude Code may have a different `PATH` from your interactive shell. Start it from a shell where `yt-dlp`, `ffmpeg`, `python`, and `deno` are available.
+- **A required tool appears missing:** Claude Code may have a different `PATH` from your interactive shell. Start it from a shell where `yt-dlp`, `ffmpeg`, `python3`, and `deno` are available. The `/shorts` setup prompt detects apt, dnf, pacman, zypper, and apk when offering Linux package installation.
 
 ## Development
 
@@ -98,4 +139,4 @@ python -m unittest tests/test_ime.py tests/test_yt.py
 
 This project is distributed under the MIT License; see [LICENSE](LICENSE).
 
-The original macOS version of cc-shorts was created by Matthew Lee ([mthli/cc-shorts](https://github.com/mthli/cc-shorts)). This Linux and Arch-focused version builds on that work while retaining the macOS code path.
+The original macOS version of cc-shorts was created by Matthew Lee ([mthli/cc-shorts](https://github.com/mthli/cc-shorts)). This project builds on that work and retains the macOS code path.
