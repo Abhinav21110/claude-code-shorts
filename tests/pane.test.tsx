@@ -32,8 +32,9 @@ test('missing yt-dlp and ffmpeg: the session says so, and /shorts offers to have
   on('process.run', (_, e) => {
     const [exe, arg] = e.argv
     if (exe === 'ffmpeg') throw new Error('spawn ffmpeg ENOENT')
+    if (exe === 'deno') return ran(0, 'deno 2.9.0 (stable, release, x86_64-unknown-linux-gnu)\n')
     if (exe === 'which') return ran(arg === 'brew' ? 0 : 1)
-    // No Python that imports yt_dlp; deno and the rest are there.
+    // No Python that imports yt_dlp; current Deno and the rest are there.
     return ran(e.argv.includes('import yt_dlp') ? 1 : 0)
   })
   on('fs.exists', () => ({ value: true }))
@@ -97,6 +98,7 @@ test('everything there: /shorts asks for the browser once, and the helpers read 
     if (exe === 'which') return ran(0, '/opt/homebrew/bin/yt-dlp\n')
     if (exe === 'head') return ran(0, `#!${PYTHON}\n`)
     if (exe === 'ffmpeg') return ran(0, ' E audiotoolbox    AudioToolbox output device\n')
+    if (exe === 'deno') return ran(0, 'deno 2.9.0 (stable, release, x86_64-unknown-linux-gnu)\n')
     if (args.includes('import yt_dlp')) return ran(exe === PYTHON ? 0 : 1)
     if (!e.argv.some(arg => arg.endsWith('/helper/yt.py'))) return ran(0)
     helperCalls.push({ argv: e.argv, browser: e.init?.env?.CC_SHORTS_BROWSER })
@@ -520,6 +522,7 @@ test('Linux offers Chromium and Firefox cookies and opens Shorts with xdg-open',
     if (exe === 'which') return ran(['yt-dlp', 'xdg-open', 'firefox'].includes(args[0] ?? '') ? 0 : 1, '/usr/bin/yt-dlp\n')
     if (exe === 'head') return ran(0, '#!/usr/bin/python\n')
     if (exe === 'ffmpeg') return ran(0, ' DE pulse Pulse audio output device\n DE alsa ALSA audio output\n')
+    if (exe === 'deno') return ran(0, 'deno 2.9.0 (stable, release, x86_64-unknown-linux-gnu)\n')
     if (args.includes('import yt_dlp')) return ran(exe === '/usr/bin/python' ? 0 : 1)
     if (e.argv.some(arg => arg.endsWith('/helper/ime.py'))) return ran(0, '{"was":null}\n')
     return ran(0)

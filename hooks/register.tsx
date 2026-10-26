@@ -22,6 +22,7 @@ import {
   findBrowser,
   frameSize,
   imageModeAfterRestart,
+  isSupportedDenoVersion,
   installPrompt,
   installQuestion,
   lastLine,
@@ -372,11 +373,11 @@ export const register: Register = on => {
 function checkSetup($: EngineInterface): Promise<Missing[]> {
   checking = (async () => {
     const home = (await $.env.get('HOME')) ?? ''
-    const [uname, found, ffmpeg, hasDeno, hasXdgOpen, packageManager] = await Promise.all([
+    const [uname, found, ffmpeg, deno, hasXdgOpen, packageManager] = await Promise.all([
       $.process.run(['uname', '-s'], { timeoutMs: 5000 }).catch(() => undefined),
       findPython($, home),
       $.process.run(['ffmpeg', '-hide_banner', '-devices'], { timeoutMs: 10_000 }).catch(() => undefined),
-      succeeds($, ['deno', '--version']),
+      $.process.run(['deno', '--version'], { timeoutMs: 10_000 }).catch(() => undefined),
       succeeds($, ['which', 'xdg-open']),
       detectLinuxPackageManager($),
     ])
@@ -408,8 +409,9 @@ function checkSetup($: EngineInterface): Promise<Missing[]> {
         package: 'xdg-utils',
       })
     }
-    if (!hasDeno) {
-      const why = "not found; yt-dlp solves YouTube's JS challenges with it and may miss formats without it"
+    if (!isSupportedDenoVersion(deno?.stdout ?? '')) {
+      const version = deno?.stdout.trim().split(/\s+/)[1]
+      const why = `${version ? `version ${version} is too old` : 'not found'}; yt-dlp needs Deno 2.3 or newer to solve YouTube's JS challenges`
       missing.push({ name: 'deno', why, package: 'deno', isOptional: true })
     }
     isSetUp = !missing.some(m => !m.isOptional)

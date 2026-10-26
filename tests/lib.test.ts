@@ -14,6 +14,7 @@ import {
   findBrowser,
   frameSize,
   imageModeAfterRestart,
+  isSupportedDenoVersion,
   installPrompt,
   installCommand,
   installQuestion,
@@ -46,6 +47,13 @@ describe('setup', () => {
     expect(nameList(['a', 'b', 'c'])).toBe('a, b and c')
   })
 
+  test('Deno versions older than yt-dlp EJS minimum are treated as unsupported', async () => {
+    expect(isSupportedDenoVersion('deno 2.3.0 (stable, release, x86_64-unknown-linux-gnu)')).toBe(true)
+    expect(isSupportedDenoVersion('deno 2.10.1 (stable, release, x86_64-unknown-linux-gnu)')).toBe(true)
+    expect(isSupportedDenoVersion('deno 1.46.3 (stable, release, x86_64-unknown-linux-gnu)')).toBe(false)
+    expect(isSupportedDenoVersion('')).toBe(false)
+  })
+
   test('installCommand uses the detected native package manager', async () => {
     expect(installCommand([ytdlp, ffmpeg, { ...ffmpeg, why: 'no pulse' }], 'macos')).toBe('brew install yt-dlp ffmpeg')
     expect(installCommand([ytdlp, ffmpeg], 'linux', 'apt')).toBe('sudo apt install yt-dlp ffmpeg')
@@ -54,11 +62,14 @@ describe('setup', () => {
     expect(installCommand([ytdlp, ffmpeg], 'linux', 'zypper')).toBe('sudo zypper install yt-dlp ffmpeg')
     expect(installCommand([ytdlp, ffmpeg], 'linux', 'apk')).toBe('sudo apk add yt-dlp ffmpeg')
     expect(installCommand([ytdlp, ffmpeg], 'linux')).toContain('your Linux package manager')
+    expect(installCommand([deno], 'linux', 'apt')).toContain('docs.deno.com')
+    expect(installCommand([ffmpeg, deno], 'linux', 'apt')).toBe('sudo apt install ffmpeg')
   })
 
   test('setupToast: nothing missing says nothing; deno alone gets its command', async () => {
     expect(setupToast([])).toBeUndefined()
     expect(setupToast([deno])).toBe('cc-shorts: deno is missing, so yt-dlp may miss formats; run brew install deno')
+    expect(setupToast([deno], 'linux')).toContain('install Deno 2.3 or newer')
     expect(setupToast([ffmpeg])).toBe('cc-shorts: ffmpeg is missing; /shorts offers to install it')
   })
 
@@ -86,6 +97,8 @@ describe('setup', () => {
     expect(installPrompt([ffmpeg], true, 'linux', 'pacman')).toContain('Run `sudo pacman -S --needed ffmpeg`')
     expect(installQuestion([ffmpeg], false, 'linux')).toContain('supported Linux package manager was not found')
     expect(installPrompt([ffmpeg], true, 'linux')).not.toContain('Homebrew')
+    expect(installPrompt([ffmpeg, deno], true, 'linux', 'apt')).toContain('sudo apt install ffmpeg')
+    expect(installPrompt([ffmpeg, deno], true, 'linux', 'apt')).toContain('Deno 2.3 or newer')
   })
 })
 

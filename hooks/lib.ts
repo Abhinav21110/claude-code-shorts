@@ -38,6 +38,14 @@ export type Platform = 'macos' | 'linux'
 export type AudioOutput = 'audiotoolbox' | 'pulse' | 'alsa'
 export type LinuxPackageManager = 'apt' | 'dnf' | 'pacman' | 'zypper' | 'apk'
 
+/** yt-dlp's current YouTube challenge solver requires Deno 2.3 or newer. */
+export function isSupportedDenoVersion(output: string): boolean {
+  const version = output.match(/^deno\s+(\d+)\.(\d+)\.(\d+)/im)
+  if (!version) return false
+  const [, major, minor, patch] = version.map(Number)
+  return major > 2 || (major === 2 && (minor > 3 || (minor === 3 && patch >= 0)))
+}
+
 /** Picks the native platform from uname, with a home path fallback for restricted hosts. */
 export function detectPlatform(uname: string, home: string): Platform {
   if (/^Linux/i.test(uname.trim())) return 'linux'
@@ -51,8 +59,15 @@ export function installCommand(
   platform: Platform,
   manager?: LinuxPackageManager,
 ): string {
-  const packages = [...new Set(missing.map(m => m.package))].join(' ')
+  const packages = [
+    ...new Set(
+      missing
+        .filter(m => platform !== 'linux' || !(m.isOptional && m.name === 'deno'))
+        .map(m => m.package),
+    ),
+  ].join(' ')
   if (platform === 'macos') return `brew install ${packages}`
+  if (!packages) return 'install Deno 2.3 or newer from https://docs.deno.com/runtime/getting_started/installation/'
   if (!manager) return `your Linux package manager (packages: ${packages})`
   const commands: Record<LinuxPackageManager, string> = {
     apt: `sudo apt install ${packages}`,
@@ -83,6 +98,8 @@ export function setupToast(
   if (missing.length === 0) return undefined
   const lacks = `cc-shorts: ${nameList(missing.map(m => m.name))} ${missing.length > 1 ? 'are' : 'is'} missing`
   // Only deno is optional: yt-dlp solves YouTube's JS challenges with it.
+  if (isNeeded(missing).length === 0 && platform === 'linux' && missing.some(m => m.name === 'deno'))
+    return `${lacks}; install Deno 2.3 or newer from https://docs.deno.com/runtime/getting_started/installation/`
   if (isNeeded(missing).length === 0)
     return `${lacks}, so yt-dlp may miss formats; run ${installCommand(missing, platform, manager)}`
   return `${lacks}; /shorts offers to install ${missing.length > 1 ? 'them' : 'it'}`
@@ -121,6 +138,11 @@ export function installPrompt(
       hasInstaller && manager
         ? `Run \`${command}\`. If sudo asks for a password or needs an interactive terminal, tell me to run the command in my terminal.`
         : 'No supported system package manager was detected. Ask which Linux distribution this is and give the appropriate safe installation instructions; do not install a package manager.',
+      ...(missing.some(m => m.isOptional && m.name === 'deno')
+        ? [
+            'Deno is optional, but YouTube downloads need a current JavaScript runtime. Install Deno 2.3 or newer using its official Linux installer: `curl -fsSL https://deno.land/install.sh | sh`. Make sure `$HOME/.deno/bin` is on Claude Code’s PATH; do not use a distro Deno package that is older than 2.3.',
+          ]
+        : []),
       "cc-shorts runs these from Claude Code's PATH: if I have one already, find out why cc-shorts cannot see it.",
       'Once it is done, tell me to run /shorts again.',
     ].join('\n')
