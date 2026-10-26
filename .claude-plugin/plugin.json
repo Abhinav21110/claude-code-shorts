@@ -1,0 +1,6 @@
+{
+  "name": "cc-shorts",
+  "version": "0.1.0",
+  "description": "Play YouTube Shorts in your Claude Code",
+  "types": "./types/index.d.ts"
+}
