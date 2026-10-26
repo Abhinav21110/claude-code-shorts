@@ -32,7 +32,7 @@ import {
   toCells,
   videoBox,
 } from './lib'
-import type { AudioOutput, Box, Missing, Platform } from './lib'
+import type { AudioOutput, Box, LinuxPackageManager, Missing, Platform } from './lib'
 
 const PANE = 'shorts'
 const VIDEO = 'video'
@@ -87,6 +87,7 @@ let carried: Shorts | undefined
 /** The Python that runs `helper/`, one that has yt_dlp; '' until the setup check finds it. */
 let python = ''
 let platform: Platform = 'macos'
+let linuxPackageManager: LinuxPackageManager | undefined
 let audio: AudioOutput = 'audiotoolbox'
 /** The last setup check, which names `python`: a helper waits for it. */
 let checking: Promise<Missing[]> | undefined
@@ -180,7 +181,7 @@ export const register: Register = on => {
     // Unawaited: the first prompt waits for this hook, and a helper waits for the check.
     const check = checkSetup($)
     void check.then(missing => {
-      const toast = setupToast(missing, platform)
+      const toast = setupToast(missing, platform, linuxPackageManager)
       if (toast !== undefined) $.ui.toast(toast, { timeoutMs: 10_000 })
     })
     await $.command.register({
@@ -371,14 +372,16 @@ export const register: Register = on => {
 function checkSetup($: EngineInterface): Promise<Missing[]> {
   checking = (async () => {
     const home = (await $.env.get('HOME')) ?? ''
-    const [uname, found, ffmpeg, hasDeno, hasXdgOpen] = await Promise.all([
+    const [uname, found, ffmpeg, hasDeno, hasXdgOpen, packageManager] = await Promise.all([
       $.process.run(['uname', '-s'], { timeoutMs: 5000 }).catch(() => undefined),
       findPython($, home),
       $.process.run(['ffmpeg', '-hide_banner', '-devices'], { timeoutMs: 10_000 }).catch(() => undefined),
       succeeds($, ['deno', '--version']),
       succeeds($, ['which', 'xdg-open']),
+      detectLinuxPackageManager($),
     ])
     platform = detectPlatform(uname?.stdout ?? '', home)
+    linuxPackageManager = packageManager
     python = found
     const missing: Missing[] = []
     if (found === '') missing.push({ name: 'yt-dlp', why: 'no Python that imports yt_dlp', package: 'yt-dlp' })
@@ -443,15 +446,26 @@ const succeeds = ($: EngineInterface, argv: string[]) =>
     () => false,
   )
 
+/** Finds a package manager supported by the install hint, in distro-neutral priority order. */
+async function detectLinuxPackageManager($: EngineInterface): Promise<LinuxPackageManager | undefined> {
+  for (const manager of ['apt-get', 'dnf', 'pacman', 'zypper', 'apk'] as const) {
+    if (await succeeds($, ['which', manager])) {
+      return manager === 'apt-get' ? 'apt' : manager
+    }
+  }
+  return undefined
+}
+
 /** Asks to install what is missing, and hands the install to Claude on a yes. */
 async function offerInstall($: EngineInterface, missing: Missing[]) {
-  const packageManager = platform === 'linux' ? 'pacman' : 'brew'
-  const hasBrew = await succeeds($, ['which', packageManager])
+  const manager = platform === 'linux' ? linuxPackageManager : undefined
+  const hasInstaller = platform === 'linux' ? manager !== undefined : await succeeds($, ['which', 'brew'])
   // Dismissed, or no one to ask (`-p`): nothing to do.
   const options = { header: 'cc-shorts', options: [INSTALL, 'Not now'] }
-  const answer = await $.ui.ask(installQuestion(missing, hasBrew, platform), options).catch(() => '')
+  const answer = await $.ui.ask(installQuestion(missing, hasInstaller, platform, manager), options).catch(() => '')
   // The person chose it: Claude reads it as their own words.
-  if (answer === INSTALL) await $.prompt.submit({ text: installPrompt(missing, hasBrew, platform), asUser: true })
+  if (answer === INSTALL)
+    await $.prompt.submit({ text: installPrompt(missing, hasInstaller, platform, manager), asUser: true })
 }
 
 /**

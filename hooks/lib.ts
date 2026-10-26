@@ -36,6 +36,7 @@ export function nameList(names: string[]): string {
 
 export type Platform = 'macos' | 'linux'
 export type AudioOutput = 'audiotoolbox' | 'pulse' | 'alsa'
+export type LinuxPackageManager = 'apt' | 'dnf' | 'pacman' | 'zypper' | 'apk'
 
 /** Picks the native platform from uname, with a home path fallback for restricted hosts. */
 export function detectPlatform(uname: string, home: string): Platform {
@@ -44,10 +45,23 @@ export function detectPlatform(uname: string, home: string): Platform {
   return home.startsWith('/Users/') ? 'macos' : 'linux'
 }
 
-/** The command that installs the requested Arch packages or Homebrew formulae. */
-export function installCommand(missing: Missing[], platform: Platform): string {
+/** The command that installs the requested packages with a detected system package manager. */
+export function installCommand(
+  missing: Missing[],
+  platform: Platform,
+  manager?: LinuxPackageManager,
+): string {
   const packages = [...new Set(missing.map(m => m.package))].join(' ')
-  return platform === 'linux' ? `sudo pacman -S --needed ${packages}` : `brew install ${packages}`
+  if (platform === 'macos') return `brew install ${packages}`
+  if (!manager) return `your Linux package manager (packages: ${packages})`
+  const commands: Record<LinuxPackageManager, string> = {
+    apt: `sudo apt install ${packages}`,
+    dnf: `sudo dnf install ${packages}`,
+    pacman: `sudo pacman -S --needed ${packages}`,
+    zypper: `sudo zypper install ${packages}`,
+    apk: `sudo apk add ${packages}`,
+  }
+  return commands[manager]
 }
 
 /** Selects FFmpeg's audio output supported by this platform and build. */
@@ -61,36 +75,52 @@ export function audioOutput(devices: string, platform: Platform, pulseAvailable 
 const isNeeded = (missing: Missing[]) => missing.filter(m => !m.isOptional)
 
 /** What a session starts with while something is missing; undefined when nothing is. */
-export function setupToast(missing: Missing[], platform: Platform = 'macos'): string | undefined {
+export function setupToast(
+  missing: Missing[],
+  platform: Platform = 'macos',
+  manager?: LinuxPackageManager,
+): string | undefined {
   if (missing.length === 0) return undefined
   const lacks = `cc-shorts: ${nameList(missing.map(m => m.name))} ${missing.length > 1 ? 'are' : 'is'} missing`
   // Only deno is optional: yt-dlp solves YouTube's JS challenges with it.
   if (isNeeded(missing).length === 0)
-    return `${lacks}, so yt-dlp may miss formats; run ${installCommand(missing, platform)}`
+    return `${lacks}, so yt-dlp may miss formats; run ${installCommand(missing, platform, manager)}`
   return `${lacks}; /shorts offers to install ${missing.length > 1 ? 'them' : 'it'}`
 }
 
 /** What `/shorts` asks while something it needs is missing. */
-export function installQuestion(missing: Missing[], hasBrew: boolean, platform: Platform = 'macos'): string {
+export function installQuestion(
+  missing: Missing[],
+  hasInstaller: boolean,
+  platform: Platform = 'macos',
+  manager?: LinuxPackageManager,
+): string {
   const optional = missing.filter(m => m.isOptional).map(m => m.name)
   const helps = optional.length > 0 ? `, plus ${nameList(optional)}, which helps yt-dlp find formats` : ''
   const lacks = `cc-shorts is missing ${nameList(isNeeded(missing).map(m => m.name))}${helps}.`
-  const manager = platform === 'linux' ? 'pacman' : 'Homebrew'
-  if (!hasBrew) return `${lacks} ${manager}, which installs them, is missing too. Ask Claude to walk you through it?`
-  return `${lacks} Install with \`${installCommand(missing, platform)}\`?`
+  const installer = platform === 'linux' ? manager : undefined
+  const managerName = platform === 'linux' ? 'a supported Linux package manager' : 'Homebrew'
+  if (!hasInstaller || (platform === 'linux' && !installer))
+    return `${lacks} ${managerName} was not found. Ask Claude to walk you through installing them?`
+  return `${lacks} Install with \`${installCommand(missing, platform, installer)}\`?`
 }
 
 /** What Claude is asked once the person lets it install what is missing. */
-export function installPrompt(missing: Missing[], hasBrew: boolean, platform: Platform = 'macos'): string {
-  const command = installCommand(missing, platform)
+export function installPrompt(
+  missing: Missing[],
+  hasInstaller: boolean,
+  platform: Platform = 'macos',
+  manager?: LinuxPackageManager,
+): string {
+  const command = installCommand(missing, platform, manager)
   if (platform === 'linux') {
     return [
-      'Install the missing cc-shorts packages on Arch Linux:',
+      'Install the missing cc-shorts packages on this Linux system:',
       ...missing.map(m => `- ${m.name}: ${m.why}`),
       '',
-      hasBrew
+      hasInstaller && manager
         ? `Run \`${command}\`. If sudo asks for a password or needs an interactive terminal, tell me to run the command in my terminal.`
-        : 'pacman is missing; tell me how to install it.',
+        : 'No supported system package manager was detected. Ask which Linux distribution this is and give the appropriate safe installation instructions; do not install a package manager.',
       "cc-shorts runs these from Claude Code's PATH: if I have one already, find out why cc-shorts cannot see it.",
       'Once it is done, tell me to run /shorts again.',
     ].join('\n')
@@ -99,7 +129,7 @@ export function installPrompt(missing: Missing[], hasBrew: boolean, platform: Pl
     'Install what the cc-shorts plugin is missing on this Mac:',
     ...missing.map(m => `- ${m.name}: ${m.why}`),
     '',
-    hasBrew
+      hasInstaller
       ? `Run \`${command}\`. It can take several minutes: give it a long timeout.`
       : 'Homebrew is missing too. Do not install it yourself: its installer asks for my password, so tell me to ' +
         `run the one from https://brew.sh in my own terminal, then run \`${command}\` once it is in.`,
