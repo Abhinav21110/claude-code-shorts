@@ -92,10 +92,7 @@ class _YoutubeDL(yt_dlp.YoutubeDL):
 
 
 def ydl(cookies=True, **params):
-    base = {'quiet': True, 'no_warnings': True, 'noprogress': True}
-    if cookies:
-        base['cookiesfrombrowser'] = (BROWSER,)
-    y = _YoutubeDL({**base, **params})
+    y = _YoutubeDL(ydl_params(cookies, **params))
     if cookies:
         # Read now rather than at the first request: yt-dlp can silently drop
         # encrypted Chromium cookies when the desktop keyring is unavailable.
@@ -104,6 +101,19 @@ def ydl(cookies=True, **params):
         if hint:
             raise yt_dlp.cookies.CookieLoadError('failed to load cookies') from PermissionError(hint)
     return y
+
+
+def ydl_params(cookies=True, **params):
+    """Use yt-dlp's official EJS fallback for distro builds that omit its scripts."""
+    base = {
+        'quiet': True,
+        'no_warnings': True,
+        'noprogress': True,
+        'remote_components': ['ejs:github'],
+    }
+    if cookies:
+        base['cookiesfrombrowser'] = (BROWSER,)
+    return {**base, **params}
 
 
 def cookie_key_hint(platform, warnings, errors):

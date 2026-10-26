@@ -2,7 +2,7 @@ import io
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 
-from helper.yt import _YoutubeDL, cookie_key_hint
+from helper.yt import _YoutubeDL, cookie_key_hint, ydl_params
 
 
 class CookieKeyHintTest(unittest.TestCase):
@@ -26,6 +26,14 @@ class CookieKeyHintTest(unittest.TestCase):
             ydl.report_error('secretstorage not available', is_error=True)
         self.assertEqual(ydl.errors, ['secretstorage not available'])
         ydl.close()
+
+
+class YtDlpSetupTest(unittest.TestCase):
+    def test_downloads_allow_official_remote_ejs_scripts_for_distro_packages(self):
+        params = ydl_params(cookies=False, format='best')
+        self.assertEqual(params['remote_components'], ['ejs:github'])
+        self.assertFalse(params.get('cookiesfrombrowser'))
+        self.assertEqual(params['format'], 'best')
 
 
 if __name__ == '__main__':
