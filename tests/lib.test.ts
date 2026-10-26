@@ -46,9 +46,14 @@ describe('setup', () => {
     expect(nameList(['a', 'b', 'c'])).toBe('a, b and c')
   })
 
-  test('installCommand uses native package manager commands', async () => {
+  test('installCommand uses the detected native package manager', async () => {
     expect(installCommand([ytdlp, ffmpeg, { ...ffmpeg, why: 'no pulse' }], 'macos')).toBe('brew install yt-dlp ffmpeg')
-    expect(installCommand([ytdlp, ffmpeg], 'linux')).toBe('sudo pacman -S --needed yt-dlp ffmpeg')
+    expect(installCommand([ytdlp, ffmpeg], 'linux', 'apt')).toBe('sudo apt install yt-dlp ffmpeg')
+    expect(installCommand([ytdlp, ffmpeg], 'linux', 'dnf')).toBe('sudo dnf install yt-dlp ffmpeg')
+    expect(installCommand([ytdlp, ffmpeg], 'linux', 'pacman')).toBe('sudo pacman -S --needed yt-dlp ffmpeg')
+    expect(installCommand([ytdlp, ffmpeg], 'linux', 'zypper')).toBe('sudo zypper install yt-dlp ffmpeg')
+    expect(installCommand([ytdlp, ffmpeg], 'linux', 'apk')).toBe('sudo apk add yt-dlp ffmpeg')
+    expect(installCommand([ytdlp, ffmpeg], 'linux')).toContain('your Linux package manager')
   })
 
   test('setupToast: nothing missing says nothing; deno alone gets its command', async () => {
@@ -76,9 +81,10 @@ describe('setup', () => {
     expect(noBrew).toContain('then run `brew install ffmpeg` once it is in')
   })
 
-  test('Arch install prompt gives pacman instructions', async () => {
-    expect(installQuestion([ffmpeg], true, 'linux')).toContain('`sudo pacman -S --needed ffmpeg`')
-    expect(installPrompt([ffmpeg], true, 'linux')).toContain('Run `sudo pacman -S --needed ffmpeg`')
+  test('Linux install prompt uses detected package manager or asks for distro instructions', async () => {
+    expect(installQuestion([ffmpeg], true, 'linux', 'pacman')).toContain('`sudo pacman -S --needed ffmpeg`')
+    expect(installPrompt([ffmpeg], true, 'linux', 'pacman')).toContain('Run `sudo pacman -S --needed ffmpeg`')
+    expect(installQuestion([ffmpeg], false, 'linux')).toContain('supported Linux package manager was not found')
     expect(installPrompt([ffmpeg], true, 'linux')).not.toContain('Homebrew')
   })
 })
