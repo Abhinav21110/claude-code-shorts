@@ -7,7 +7,7 @@ cc-shorts supports Linux distributions using Wayland or X11, including Arch, Deb
 ## Requirements
 
 - Claude Code running in a terminal. The Claude desktop app and IDE extensions do not support this player pane.
-- `yt-dlp`, FFmpeg, Python 3, and Deno. Deno helps yt-dlp solve YouTube JavaScript challenges; playback may still work without it.
+- `yt-dlp`, FFmpeg, and Python 3. Deno 2.3 or newer is recommended for yt-dlp's YouTube JavaScript challenge solver; clips can still work without it, but some downloads may fail or have fewer formats.
 - A browser signed in to YouTube. Chromium or Firefox are recommended.
 - On Linux, `xdg-utils` (for `xdg-open`) is needed to open Shorts in your default browser.
 - For sharp inline frames, use Kitty or Ghostty. Claude Code's inline image path works in these terminals. Foot uses Sixel, which the current Claude Code image pane does not render, so Foot displays the lower-resolution colored-block fallback.
@@ -21,15 +21,15 @@ Install the equivalent packages with your distribution's package manager. Exampl
 
 ```sh
 sudo apt update
-sudo apt install yt-dlp ffmpeg deno xdg-utils firefox-esr chromium
+sudo apt install yt-dlp ffmpeg xdg-utils firefox-esr chromium
 ```
 
-Ubuntu may call the browser package `chromium-browser`, and some releases provide Chromium as a Snap. If `deno` is unavailable in your release's repositories, install Deno using its [official Linux instructions](https://docs.deno.com/runtime/getting_started/installation/).
+Ubuntu may call the browser package `chromium-browser`, and some releases provide Chromium as a Snap.
 
 ### Fedora
 
 ```sh
-sudo dnf install yt-dlp deno xdg-utils firefox chromium
+sudo dnf install yt-dlp xdg-utils firefox chromium
 ```
 
 For full FFmpeg support, enable RPM Fusion and install its FFmpeg package as described by [RPM Fusion](https://rpmfusion.org/Howto/Multimedia). Fedora's default `ffmpeg-free` may lack codecs needed by some videos.
@@ -37,7 +37,7 @@ For full FFmpeg support, enable RPM Fusion and install its FFmpeg package as des
 ### Arch Linux and Arch-based distributions
 
 ```sh
-sudo pacman -S --needed yt-dlp ffmpeg deno xdg-utils firefox chromium
+sudo pacman -S --needed yt-dlp ffmpeg xdg-utils firefox chromium
 ```
 
 If you use an AUR helper such as `yay`, use it for packages that are only available from the AUR; the packages above are available from the standard repositories.
@@ -45,7 +45,7 @@ If you use an AUR helper such as `yay`, use it for packages that are only availa
 ### openSUSE
 
 ```sh
-sudo zypper install yt-dlp ffmpeg deno xdg-utils MozillaFirefox chromium
+sudo zypper install yt-dlp ffmpeg xdg-utils MozillaFirefox chromium
 ```
 
 Some openSUSE multimedia packages require the Packman repository. If your FFmpeg build lacks PulseAudio or ALSA output, install a full FFmpeg build from your enabled multimedia repository.
@@ -53,10 +53,22 @@ Some openSUSE multimedia packages require the Packman repository. If your FFmpeg
 ### Alpine Linux
 
 ```sh
-sudo apk add yt-dlp ffmpeg deno xdg-utils firefox chromium
+sudo apk add yt-dlp ffmpeg xdg-utils firefox chromium
 ```
 
 Package availability can vary by release and enabled repository. If a package is missing, use the distribution's official package search or install that tool from its upstream instructions.
+
+### Deno for yt-dlp
+
+Current yt-dlp YouTube support needs Deno 2.3 or newer (or another supported JavaScript runtime). Deno does not publish an official apt repository, and distribution packages can lag behind. Install Deno with its [official Linux installer](https://docs.deno.com/runtime/getting_started/installation/):
+
+```sh
+curl -fsSL https://deno.land/install.sh | sh
+source "$HOME/.deno/env"
+deno --version
+```
+
+Confirm the first line reports version `2.3.0` or newer. Start Claude Code from this shell so it inherits the Deno path. The yt-dlp helper also enables yt-dlp's official GitHub EJS-script fallback for distribution builds that do not bundle those scripts.
 
 ### Audio setup
 
@@ -124,6 +136,7 @@ Click the channel name below the video to open the Short as well. Closing the pa
 - **Cannot read Chromium cookies:** unlock GNOME Keyring or KWallet. If the error persists, use Firefox with `/shorts browser`.
 - **The image looks like colored blocks:** launch Claude Code from Kitty or Ghostty, which support the inline image protocol used by Claude Code. Foot's Sixel support is not currently used by Claude Code's image pane.
 - **Downloads fail:** check the network and press `j` to retry.
+- **Every download fails on Kali/Debian:** update `yt-dlp`, verify Deno is at least 2.3 with `deno --version`, and confirm Claude Code was started from a shell that can run `deno`. If it still fails, the actual yt-dlp error is in Claude Code's debug log; include its last error lines when asking for help.
 - **A required tool appears missing:** Claude Code may have a different `PATH` from your interactive shell. Start it from a shell where `yt-dlp`, `ffmpeg`, `python3`, and `deno` are available. The `/shorts` setup prompt detects apt, dnf, pacman, zypper, and apk when offering Linux package installation.
 
 ## Development
