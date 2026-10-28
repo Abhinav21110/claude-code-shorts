@@ -15,7 +15,7 @@ cc-shorts supports Linux distributions using Wayland or X11, including Arch, Deb
 
 ## Install dependencies on Linux
 
-Install the equivalent packages with your distribution's package manager. Examples for common distributions follow; omit `chromium` or `firefox` if you do not use that browser.
+Run `/shorts install` in Claude Code to see the install commands for your system (macOS, or your Linux distribution's package manager). The examples below cover the same packages; omit `chromium` or `firefox` if you do not use that browser.
 
 ### Debian and Ubuntu
 

@@ -17,6 +17,7 @@ import {
   isSupportedDenoVersion,
   installPrompt,
   installCommand,
+  installGuide,
   installQuestion,
   nameList,
   parseProgress,
@@ -116,6 +117,19 @@ describe('platform support', () => {
     expect(linux.map(browser => browser.id)).not.toContain('safari')
     expect(linux.find(browser => browser.id === 'chromium')?.dir).toBe('.config/chromium')
     expect(browsersFor('macos').find(browser => browser.id === 'safari')).toBeDefined()
+  })
+
+  test('Firefox is the first browser offered, on both platforms, ahead of Safari', async () => {
+    expect(browsersFor('linux')[0]?.id).toBe('firefox')
+    expect(browsersFor('macos')[0]?.id).toBe('firefox')
+  })
+
+  test('installGuide: every dependency for the detected system', async () => {
+    expect(installGuide('macos')).toBe('brew install yt-dlp ffmpeg deno')
+    expect(installGuide('linux', 'pacman')).toBe(
+      'sudo pacman -S --needed yt-dlp ffmpeg xdg-utils\nDeno 2.3 or newer: curl -fsSL https://deno.land/install.sh | sh',
+    )
+    expect(installGuide('linux')).toContain('your Linux package manager (packages: yt-dlp ffmpeg xdg-utils)')
   })
 
   test('selects PulseAudio (including PipeWire Pulse) then ALSA on Linux', async () => {

@@ -23,6 +23,7 @@ import {
   frameSize,
   imageModeAfterRestart,
   isSupportedDenoVersion,
+  installGuide,
   installPrompt,
   installQuestion,
   lastLine,
@@ -188,7 +189,7 @@ export const register: Register = on => {
     await $.command.register({
       name: 'shorts',
       description: 'Play YouTube Shorts in your Claude Code',
-      argumentHint: '[browser]',
+      argumentHint: '[browser | install]',
     })
     // Downloads of sessions that ended without cleaning up (a crash).
     // prettier-ignore
@@ -224,6 +225,10 @@ export const register: Register = on => {
   })
 
   on('command.run', { command: 'shorts' }, async ($, e) => {
+    if (e.args.trim() === 'install') {
+      await showInstall($)
+      return {}
+    }
     // Checked again until it passes: the person may have installed something since.
     if (!isSetUp) {
       const missing = await checkSetup($)
@@ -468,6 +473,24 @@ async function offerInstall($: EngineInterface, missing: Missing[]) {
   // The person chose it: Claude reads it as their own words.
   if (answer === INSTALL)
     await $.prompt.submit({ text: installPrompt(missing, hasInstaller, platform, manager), asUser: true })
+}
+
+/**
+ * `/shorts install`: the commands for this system's package manager, with
+ * Claude to run them on a yes. Detects the system first, as setup does.
+ */
+async function showInstall($: EngineInterface) {
+  await checkSetup($)
+  const manager = platform === 'linux' ? linuxPackageManager : undefined
+  const system = platform === 'linux' ? 'Linux' : 'macOS'
+  const guide = installGuide(platform, manager)
+  const question = `Install cc-shorts's dependencies on ${system}:\n${guide}`
+  const answer = await $.ui.ask(question, { header: 'cc-shorts', options: [INSTALL, 'Not now'] }).catch(() => '')
+  if (answer === INSTALL)
+    await $.prompt.submit({
+      text: `Run these commands to install cc-shorts's dependencies on this ${system}, asking me before each one:\n${guide}`,
+      asUser: true,
+    })
 }
 
 /**

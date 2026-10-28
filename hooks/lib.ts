@@ -79,6 +79,21 @@ export function installCommand(
   return commands[manager]
 }
 
+/** The commands that install everything cc-shorts uses on this platform, Deno included. */
+export function installGuide(platform: Platform, manager?: LinuxPackageManager): string {
+  const deno: Missing = { name: 'deno', why: '', package: 'deno', isOptional: true }
+  const needed: Missing[] = [
+    { name: 'yt-dlp', why: '', package: 'yt-dlp' },
+    { name: 'ffmpeg', why: '', package: 'ffmpeg' },
+    ...(platform === 'linux' ? [{ name: 'xdg-utils', why: '', package: 'xdg-utils' }] : []),
+  ]
+  if (platform === 'macos') return installCommand([...needed, deno], platform)
+  // Distribution packages of Deno lag behind 2.3, so it comes from its installer.
+  return [installCommand(needed, platform, manager), 'Deno 2.3 or newer: curl -fsSL https://deno.land/install.sh | sh'].join(
+    '\n',
+  )
+}
+
 /** Selects FFmpeg's audio output supported by this platform and build. */
 export function audioOutput(devices: string, platform: Platform, pulseAvailable = true): AudioOutput | undefined {
   if (platform === 'macos') return /\baudiotoolbox\b/i.test(devices) ? 'audiotoolbox' : undefined
@@ -193,12 +208,12 @@ export function browsersFor(platform: Platform): Browser[] {
   const available = BROWSERS.filter(
     browser => (platform === 'linux' ? browser.linuxDir : browser.macDir) !== undefined,
   ).map(browser => ({ ...browser, dir: platform === 'linux' ? browser.linuxDir : browser.macDir }))
-  return platform === 'linux'
-    ? [
-        ...available.filter(browser => ['chromium', 'firefox'].includes(browser.id)),
-        ...available.filter(browser => !['chromium', 'firefox'].includes(browser.id)),
-      ]
-    : available
+  // Firefox first: its cookies need no keyring. Then Chromium, then the rest.
+  const preferred = ['firefox', 'chromium']
+  return [
+    ...preferred.flatMap(id => available.filter(browser => browser.id === id)),
+    ...available.filter(browser => !preferred.includes(browser.id)),
+  ]
 }
 
 /** The browser an answer names, by either name, or within it (`Google Chrome`); undefined for one yt-dlp cannot read. */

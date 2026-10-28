@@ -156,7 +156,7 @@ test('everything there: /shorts asks for the browser once, and the helpers read 
   await $.command.run(SHORTS)
   await settle()
   expect(asked).toEqual([
-    { question: expect.stringContaining('Which browser'), options: ['Chrome', 'Safari', 'Edge', 'Firefox'] },
+    { question: expect.stringContaining('Which browser'), options: ['Firefox', 'Chrome', 'Safari', 'Edge'] },
   ])
   expect(store.browser).toBe('firefox')
   // Chrome's place in the feed is no use to Firefox's account.
