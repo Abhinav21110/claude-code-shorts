@@ -2,7 +2,18 @@ import io
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 
-from helper.yt import _YoutubeDL, cookie_key_hint, ydl_params
+from helper.yt import _YoutubeDL, cookie_key_hint, cookie_source, ydl_params
+
+
+class CookieSourceTest(unittest.TestCase):
+    def test_zen_is_read_as_firefox_from_its_profile_folder(self):
+        name, root = cookie_source('zen')
+        self.assertEqual(name, 'firefox')
+        self.assertTrue(root.endswith(('zen', '.zen')), root)
+
+    def test_other_browsers_are_passed_by_name(self):
+        self.assertEqual(cookie_source('chrome'), ('chrome',))
+        self.assertEqual(cookie_source('firefox'), ('firefox',))
 
 
 class CookieKeyHintTest(unittest.TestCase):

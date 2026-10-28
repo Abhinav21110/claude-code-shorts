@@ -2,7 +2,7 @@
 
 Play YouTube Shorts from Claude Code with `/shorts`. Browse the feed, watch and pause clips, like videos, and open a Short in your browser.
 
-cc-shorts supports Linux distributions using Wayland or X11, including Arch, Debian/Ubuntu, Fedora, openSUSE, and Alpine, as well as macOS. It supports Chromium-based browsers and Firefox. Linux audio uses PipeWire/PulseAudio when available and falls back to ALSA.
+cc-shorts supports Linux distributions using Wayland or X11, including Arch, Debian/Ubuntu, Fedora, openSUSE, and Alpine, as well as macOS. It supports Chromium-based browsers, Firefox, and Zen (a Firefox-based browser). Linux audio uses PipeWire/PulseAudio when available and falls back to ALSA.
 
 ## Requirements
 
@@ -107,7 +107,7 @@ claude --plugin-dir .
 Inside Claude Code:
 
 1. Run `/shorts`.
-2. Choose Chromium or Firefox, then sign in to YouTube in that browser if needed.
+2. Choose Firefox (the default), Zen, Chromium, or another listed browser, then sign in to YouTube in that browser if needed.
 3. Run `/shorts` again if browser sign-in or setup was not complete.
 
 You can start Claude Code from another directory by passing the full plugin path:
@@ -136,11 +136,10 @@ Focus the Shorts pane to use its keys:
 | `m` | Mute or unmute |
 | `o` | Pause and open the Short in your browser |
 | `x` | Close the pane |
-| `z` | Zen: the picture alone, filling the pane. Press again to go back |
 
-Click the channel name below the video to open the Short as well. Closing the pane keeps your place for the rest of the Claude Code session. `/shorts zen` toggles zen too, and zen stays on across sessions.
+Click the channel name below the video to open the Short as well. Closing the pane keeps your place for the rest of the Claude Code session.
 
-The normal pane stays within 50 columns by 40 rows, however large your terminal is. Zen uses the whole terminal.
+The picture stays within 50 columns by 40 rows, however large your terminal is.
 
 ## Privacy and behavior
 

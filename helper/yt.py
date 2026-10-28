@@ -103,6 +103,24 @@ def ydl(cookies=True, **params):
     return y
 
 
+# Zen is Firefox-based, and yt-dlp does not know its folders, so its profiles
+# are read by path, as Firefox's are. The first of these that exists is used.
+ZEN_ROOTS = (
+    '~/.config/zen',
+    '~/.zen',
+    '~/.var/app/app.zen_browser.zen/zen',
+    '~/Library/Application Support/zen',
+)
+
+
+def cookie_source(browser):
+    """yt-dlp's cookiesfrombrowser for the browser: Zen's profiles read as Firefox's."""
+    if browser != 'zen':
+        return (browser,)
+    roots = [os.path.expanduser(root) for root in ZEN_ROOTS]
+    return ('firefox', next((root for root in roots if os.path.isdir(root)), roots[0]))
+
+
 def ydl_params(cookies=True, **params):
     """Use yt-dlp's official EJS fallback for distro builds that omit its scripts."""
     base = {
@@ -112,7 +130,7 @@ def ydl_params(cookies=True, **params):
         'remote_components': ['ejs:github'],
     }
     if cookies:
-        base['cookiesfrombrowser'] = (BROWSER,)
+        base['cookiesfrombrowser'] = cookie_source(BROWSER)
     return {**base, **params}
 
 

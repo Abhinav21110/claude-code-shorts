@@ -191,6 +191,8 @@ export const BROWSERS: readonly Browser[] = [
   { id: 'safari', name: 'Safari', macDir: '' },
   { id: 'edge', name: 'Edge', macDir: 'Microsoft Edge', linuxDir: '.config/microsoft-edge' },
   { id: 'firefox', name: 'Firefox', macDir: 'Firefox/Profiles', linuxDir: '.mozilla/firefox', linuxCommand: 'firefox' },
+  // Firefox-based: the helper reads its profiles as Firefox's (see `cookie_source` in helper/yt.py).
+  { id: 'zen', name: 'Zen', macDir: 'zen', linuxDir: '.config/zen', linuxCommand: 'zen-browser' },
   {
     id: 'brave',
     name: 'Brave',
@@ -208,8 +210,8 @@ export function browsersFor(platform: Platform): Browser[] {
   const available = BROWSERS.filter(
     browser => (platform === 'linux' ? browser.linuxDir : browser.macDir) !== undefined,
   ).map(browser => ({ ...browser, dir: platform === 'linux' ? browser.linuxDir : browser.macDir }))
-  // Firefox first: its cookies need no keyring. Then Chromium, then the rest.
-  const preferred = ['firefox', 'chromium']
+  // Firefox first: its cookies need no keyring. Then Zen and Chromium, then the rest.
+  const preferred = ['firefox', 'zen', 'chromium']
   return [
     ...preferred.flatMap(id => available.filter(browser => browser.id === id)),
     ...available.filter(browser => !preferred.includes(browser.id)),
@@ -249,13 +251,11 @@ export function browserQuestion(here: readonly Browser[], current: string, platf
 
 // --- the pane and playback ---------------------------------------------------
 
-/** Rows under the picture: author, title (two), status line, buttons (three). */
-export const CHROME_ROWS = 7
+/** Rows under the picture: author, title (two), status line, buttons (two). */
+export const CHROME_ROWS = 6
 /** The size `/shorts` opens the pane at: the picture never grows past it. */
 export const PANE_COLUMNS = 50
 export const PANE_ROWS = 40
-/** Zen keeps one row of the buttons, hidden, so their keys still work. */
-export const ZEN_ROWS = 1
 
 export type Box = { columns: number; rows: number }
 
@@ -265,14 +265,12 @@ const even = (n: number) => Math.max(2, Math.round(n / 2) * 2)
 /**
  * The largest 9:16 box of cells that fits the pane's body above the chrome.
  * A cell is about twice as tall as it is wide, so 9:16 is 9 columns for
- * every 8 rows. The normal pane stays within PANE_COLUMNS x PANE_ROWS however
- * large the terminal is; zen fills the body.
+ * every 8 rows. The picture stays within PANE_COLUMNS x PANE_ROWS however
+ * large the terminal is.
  */
-export function videoBox(bodyColumns: number, bodyRows: number, zen = false): Box {
-  const columnsRoom = zen ? bodyColumns : Math.min(bodyColumns, PANE_COLUMNS)
-  const rowsRoom = zen ? bodyRows : Math.min(bodyRows, PANE_ROWS)
-  const room = Math.max(2, rowsRoom - (zen ? ZEN_ROWS : CHROME_ROWS))
-  const columns = clamp(Math.min(columnsRoom, Math.floor((room * 9) / 8)), 2, 255)
+export function videoBox(bodyColumns: number, bodyRows: number): Box {
+  const room = Math.max(2, Math.min(bodyRows, PANE_ROWS) - CHROME_ROWS)
+  const columns = clamp(Math.min(bodyColumns, PANE_COLUMNS, Math.floor((room * 9) / 8)), 2, 255)
   return { columns, rows: clamp(Math.round((columns * 8) / 9), 1, room) }
 }
 

@@ -145,6 +145,8 @@ describe('the browser', () => {
 
   test('findBrowser: by either name, within a longer one, or none', async () => {
     expect(findBrowser('Firefox')?.id).toBe('firefox')
+    expect(findBrowser('Zen')?.id).toBe('zen')
+    expect(browsersFor('linux').map(browser => browser.id).slice(0, 2)).toEqual(['firefox', 'zen'])
     expect(findBrowser(' edge ')?.id).toBe('edge')
     expect(findBrowser('Google Chrome')?.id).toBe('chrome')
     expect(findBrowser('Microsoft Edge')?.id).toBe('edge')
@@ -184,14 +186,9 @@ describe('videoBox', () => {
     expect(box.columns).toBe(Math.floor(((30 - CHROME_ROWS) * 9) / 8))
   })
 
-  test('a big terminal: the normal pane keeps its section, however large', async () => {
-    expect(videoBox(200, 100)).toEqual({ columns: 37, rows: 33 })
-    expect(videoBox(400, 400)).toEqual({ columns: 37, rows: 33 })
-  })
-
-  test('zen: fills the body, and is never wider than an Image may be', async () => {
-    expect(videoBox(120, 30, true)).toEqual({ columns: 32, rows: 28 })
-    expect(videoBox(400, 400, true).columns).toBe(255)
+  test('a big terminal: the picture keeps its section, however large', async () => {
+    expect(videoBox(200, 100)).toEqual({ columns: 38, rows: 34 })
+    expect(videoBox(400, 400)).toEqual({ columns: 38, rows: 34 })
   })
 })
 
