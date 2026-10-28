@@ -136,8 +136,11 @@ Focus the Shorts pane to use its keys:
 | `m` | Mute or unmute |
 | `o` | Pause and open the Short in your browser |
 | `x` | Close the pane |
+| `z` | Zen: the picture alone, filling the pane. Press again to go back |
 
-Click the channel name below the video to open the Short as well. Closing the pane keeps your place for the rest of the Claude Code session.
+Click the channel name below the video to open the Short as well. Closing the pane keeps your place for the rest of the Claude Code session. `/shorts zen` toggles zen too, and zen stays on across sessions.
+
+The normal pane stays within 50 columns by 40 rows, however large your terminal is. Zen uses the whole terminal.
 
 ## Privacy and behavior
 

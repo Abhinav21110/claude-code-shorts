@@ -28,6 +28,8 @@ import {
   installQuestion,
   lastLine,
   nameList,
+  PANE_COLUMNS,
+  PANE_ROWS,
   parseProgress,
   setupToast,
   shebangPython,
@@ -100,6 +102,8 @@ let isSetUp = false
  * chose it (kept in `$.store`); '' until they do, and `yt.py` reads Chrome's.
  */
 let browser = ''
+/** Zen: the picture alone, filling the pane (kept in `$.store`). */
+let zen = false
 /** Bumped by every action that changes what plays; stale work checks it. */
 let epoch = 0
 let player: Player | undefined
@@ -180,6 +184,7 @@ export const register: Register = on => {
     dir = (await read($, shorts)).dir ?? `${tmp}/cc-shorts/${await $.session.id()}`
     const chosen = await $.store.get('browser').catch(() => undefined)
     browser = typeof chosen === 'string' ? chosen : ''
+    zen = (await $.store.get('zen').catch(() => undefined)) === true
     // Unawaited: the first prompt waits for this hook, and a helper waits for the check.
     const check = checkSetup($)
     void check.then(missing => {
@@ -189,7 +194,7 @@ export const register: Register = on => {
     await $.command.register({
       name: 'shorts',
       description: 'Play YouTube Shorts in your Claude Code',
-      argumentHint: '[browser | install]',
+      argumentHint: '[browser | install | zen]',
     })
     // Downloads of sessions that ended without cleaning up (a crash).
     // prettier-ignore
@@ -229,6 +234,10 @@ export const register: Register = on => {
       await showInstall($)
       return {}
     }
+    if (e.args.trim() === 'zen') {
+      await toggleZen($)
+      return {}
+    }
     // Checked again until it passes: the person may have installed something since.
     if (!isSetUp) {
       const missing = await checkSetup($)
@@ -256,7 +265,7 @@ export const register: Register = on => {
     // ctrl+x tab, a click, Esc); the switch runs on after it returns. Idle is
     // a pane closing (`shutDown`), whose last draws still hold the keyboard.
     void holdKeys($, e.props.isFocused && s.status !== 'idle')
-    layout = videoBox(e.props.bodyColumns, e.props.scroll.bodyRows)
+    layout = videoBox(e.props.bodyColumns, e.props.scroll.bodyRows, zen)
     const short = s.shorts[s.queue[s.cur] ?? '']
     const f = s.frame
     const hasPicture = f !== undefined && (s.status === 'playing' || s.status === 'paused')
@@ -298,6 +307,36 @@ export const register: Register = on => {
       </Box>
     )
 
+    // Three rows of four at most: eight in one row outgrow the 50 columns asked for.
+    const keys = (
+      <>
+        <Box flexDirection="row" columnGap={KEY_GAP} flexWrap="wrap">
+          {cell('next', 'j', 'Next', () => void skip($, 1))}
+          {cell('previous', 'k', 'Prev', () => void skip($, -1))}
+          {cell('pause', 'p', s.status === 'paused' ? 'Play' : 'Pause', () => void togglePause($))}
+          {cell('replay', 'r', 'Replay', () => void skip($, 0))}
+        </Box>
+        <Box flexDirection="row" columnGap={KEY_GAP} flexWrap="wrap">
+          {cell('like', 'l', isLiked ? 'Unlike' : 'Like', () => void toggleLike($))}
+          {cell('mute', 'm', s.muted ? 'Unmute' : 'Mute', () => void toggleMute($))}
+          {cell('open', 'o', 'Open ↗', () => void (short && openInBrowser($, short.id)))}
+          {cell('close', 'x', 'Close', () => void shutDown($).then(() => $.ui.close({ id: PANE })))}
+        </Box>
+        <Box flexDirection="row" columnGap={KEY_GAP} flexWrap="wrap">
+          {cell('zen', 'z', zen ? 'Normal' : 'Zen', () => void toggleZen($))}
+        </Box>
+      </>
+    )
+    // Zen: the picture alone. Its keys stay mounted, clipped to no rows, so they still answer.
+    if (zen)
+      return (
+        <Box flexDirection="column" alignItems="center">
+          {picture}
+          <Box height={0} overflow="hidden">
+            {keys}
+          </Box>
+        </Box>
+      )
     return (
       <Box flexDirection="column" alignItems="center">
         {picture}
@@ -320,19 +359,7 @@ export const register: Register = on => {
         <Text dimColor wrap="truncate">
           {notes || ' '}
         </Text>
-        {/* Two rows of four: eight in one row outgrow the 50 columns asked for. */}
-        <Box flexDirection="row" columnGap={KEY_GAP} flexWrap="wrap">
-          {cell('next', 'j', 'Next', () => void skip($, 1))}
-          {cell('previous', 'k', 'Prev', () => void skip($, -1))}
-          {cell('pause', 'p', s.status === 'paused' ? 'Play' : 'Pause', () => void togglePause($))}
-          {cell('replay', 'r', 'Replay', () => void skip($, 0))}
-        </Box>
-        <Box flexDirection="row" columnGap={KEY_GAP} flexWrap="wrap">
-          {cell('like', 'l', isLiked ? 'Unlike' : 'Like', () => void toggleLike($))}
-          {cell('mute', 'm', s.muted ? 'Unmute' : 'Mute', () => void toggleMute($))}
-          {cell('open', 'o', 'Open ↗', () => void (short && openInBrowser($, short.id)))}
-          {cell('close', 'x', 'Close', () => void shutDown($).then(() => $.ui.close({ id: PANE })))}
-        </Box>
+        {keys}
       </Box>
     )
   })
@@ -475,6 +502,13 @@ async function offerInstall($: EngineInterface, missing: Missing[]) {
     await $.prompt.submit({ text: installPrompt(missing, hasInstaller, platform, manager), asUser: true })
 }
 
+/** Zen (`z`, or `/shorts zen`): the picture alone, filling the pane; kept across sessions. */
+async function toggleZen($: EngineInterface) {
+  zen = !zen
+  await $.store.set('zen', zen)
+  $.ui.invalidate('ui.render')
+}
+
 /**
  * `/shorts install`: the commands for this system's package manager, with
  * Claude to run them on a yes. Detects the system first, as setup does.
@@ -590,7 +624,7 @@ async function start($: EngineInterface, short: Short, from: number, my: number)
   if (my !== epoch) return
   const s = await read($, shorts)
   const mode = s.mode ?? 'image'
-  const box = layout ?? videoBox(50, 40)
+  const box = layout ?? videoBox(PANE_COLUMNS, PANE_ROWS, zen)
   await $.process.run(['mkdir', '-p', dir])
   // Skipped on while this waited: an ffmpeg spawned now would have nothing
   // left to stop it, so the newer play spawns its own.
