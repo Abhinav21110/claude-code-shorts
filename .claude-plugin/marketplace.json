@@ -1,0 +1,18 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "cc-shorts",
+  "description": "Play YouTube Shorts in Claude Code with /shorts",
+  "owner": {
+    "name": "Abhinav21110",
+    "url": "https://github.com/Abhinav21110"
+  },
+  "plugins": [
+    {
+      "name": "cc-shorts",
+      "description": "Play YouTube Shorts in your Claude Code",
+      "version": "0.1.0",
+      "source": "./",
+      "category": "entertainment"
+    }
+  ]
+}

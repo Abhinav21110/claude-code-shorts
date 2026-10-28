@@ -78,12 +78,28 @@ PipeWire with `pipewire-pulse` is recommended. On distributions that package the
 
 Chromium may encrypt cookies with the desktop keyring. On GNOME, make sure GNOME Keyring's Secret Service is installed and unlocked; on KDE Plasma, make sure KWallet is installed and unlocked. Some distributions require yt-dlp's optional Python SecretStorage package. Firefox does not depend on the desktop keyring and is a useful choice if Chromium cookie decryption fails.
 
-## Run cc-shorts
+## Install cc-shorts
 
-Clone the repository (or use your local copy), then launch Claude Code from Kitty or Ghostty for the sharpest inline video:
+Inside Claude Code, add this repository as a marketplace and install the plugin:
+
+```
+/plugin marketplace add Abhinav21110/claude-code-shorts
+/plugin install cc-shorts@cc-shorts
+```
+
+Or from your terminal in one step:
 
 ```sh
-git clone <REPOSITORY_URL> ~/cc-shorts
+claude plugin marketplace add Abhinav21110/claude-code-shorts
+claude plugin install cc-shorts@cc-shorts
+```
+
+Then launch Claude Code from Kitty or Ghostty for the sharpest inline video.
+
+To run from a local checkout instead (for development):
+
+```sh
+git clone https://github.com/Abhinav21110/claude-code-shorts.git ~/cc-shorts
 cd ~/cc-shorts
 claude --plugin-dir .
 ```

@@ -2,5 +2,13 @@
   "name": "cc-shorts",
   "version": "0.1.0",
   "description": "Play YouTube Shorts in your Claude Code",
+  "author": {
+    "name": "Abhinav21110",
+    "url": "https://github.com/Abhinav21110"
+  },
+  "homepage": "https://github.com/Abhinav21110/claude-code-shorts",
+  "repository": "https://github.com/Abhinav21110/claude-code-shorts",
+  "license": "MIT",
+  "keywords": ["youtube", "shorts", "video", "player", "yt-dlp"],
   "types": "./types/index.d.ts"
 }
