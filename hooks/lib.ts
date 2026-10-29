@@ -290,6 +290,21 @@ export function frameSize(mode: Mode, box: Box): { width: number; height: number
   return { width, height: even((width * 16) / 9) }
 }
 
+/** A byte-backed Image source for terminals that cannot read raw RGB files. */
+export function rgbaSource(rgb: Uint8Array, width: number, height: number): { rgba: string; width: number; height: number } {
+  if (!Number.isInteger(width) || !Number.isInteger(height) || width < 1 || height < 1 || rgb.length !== width * height * 3)
+    throw new RangeError('RGB frame dimensions do not match its bytes')
+
+  const rgba = new Uint8Array(width * height * 4)
+  for (let source = 0, target = 0; source < rgb.length; source += 3, target += 4) {
+    rgba[target] = rgb[source] ?? 0
+    rgba[target + 1] = rgb[source + 1] ?? 0
+    rgba[target + 2] = rgb[source + 2] ?? 0
+    rgba[target + 3] = 255
+  }
+  return { rgba: rgba.toBase64(), width, height }
+}
+
 /**
  * The ffmpeg that plays one Short from `start` seconds at its own pace: each
  * frame rewrites `frame.file` whole (a rename, so a reader never sees half a

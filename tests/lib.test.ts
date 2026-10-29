@@ -21,6 +21,7 @@ import {
   installQuestion,
   nameList,
   parseProgress,
+  rgbaSource,
   setupToast,
   shebangPython,
   toCells,
@@ -200,6 +201,19 @@ describe('frameSize', () => {
   test('image: about ten pixels a column, 9:16, at most 480 wide', async () => {
     expect(frameSize('image', { columns: 36, rows: 32 })).toEqual({ width: 360, height: 640 })
     expect(frameSize('image', { columns: 200, rows: 178 }).width).toBe(480)
+  })
+})
+
+describe('rgbaSource', () => {
+  test('adds opaque alpha to every RGB pixel and keeps the dimensions', async () => {
+    const source = rgbaSource(Uint8Array.of(255, 0, 0, 0, 127, 255), 2, 1)
+    expect(source.width).toBe(2)
+    expect(source.height).toBe(1)
+    expect([...Uint8Array.fromBase64(source.rgba)]).toEqual([255, 0, 0, 255, 0, 127, 255, 255])
+  })
+
+  test('rejects dimensions that do not describe the RGB frame', async () => {
+    expect(() => rgbaSource(Uint8Array.of(1, 2, 3), 2, 1)).toThrow(RangeError)
   })
 })
 
