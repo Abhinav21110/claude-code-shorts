@@ -31,6 +31,7 @@ import {
   PANE_COLUMNS,
   PANE_ROWS,
   parseProgress,
+  rgbaSource,
   setupToast,
   shebangPython,
   toCells,
@@ -69,7 +70,10 @@ const shorts = atom({ plugin: 'cc-shorts', key: 'shorts' } as const, EMPTY)
 type Player = {
   id: string
   stream: HookStream<ProcessSpawnChunk, ProcessSpawnResult>
+  epoch: number
   mode: Mode
+  /** iTerm2 reads inline image bytes, but cannot read the file-backed source. */
+  useRgba: boolean
   frame: Frame
   /** Where this ffmpeg started, and where it is now, in seconds. */
   start: number
@@ -607,7 +611,7 @@ async function start($: EngineInterface, short: Short, from: number, my: number)
     isMuted: s.muted || !short.hasAudio,
     audioOutput: audio,
   })
-  const p: Player = { id: short.id, stream: $.process.spawn({ argv }), mode, frame, start: from, pos: from, stderr: '' }
+  const p: Player = { id: short.id, stream: $.process.spawn({ argv }), epoch: my, mode, useRgba: false, frame, start: from, pos: from, stderr: '' }
   player = p
   // Every older frame file: the one shown while paused, and any an ffmpeg
   // still dying wrote after it was stopped.
@@ -635,17 +639,26 @@ async function tick($: EngineInterface) {
       return
     }
     let result
+    let source: ImageSource | undefined
     if (p.mode === 'image') {
       const { file, width, height } = p.frame
-      const source: ImageSource = { file, format: 'rgb', width, height, generation: ++generation }
+      if (p.useRgba) {
+        const { base64 } = await $.fs.read(file, { as: 'bytes' })
+        if (player !== p || p.epoch !== epoch) return
+        source = rgbaSource(Uint8Array.fromBase64(base64), width, height)
+      } else {
+        source = { file, format: 'rgb', width, height, generation: ++generation }
+      }
       result = await $.ui.blit({ requestId: PANE, key: VIDEO, source })
-      if (!result.deny) lastSource = source
     } else {
       const cells = await frameCells($, p.frame)
+      if (player !== p || p.epoch !== epoch) return
       result = await $.ui.blit({ requestId: PANE, key: VIDEO, cells })
       if (!result.deny) lastCells = cells
     }
-    if (result.deny && player === p) await denied($, p, result.deny)
+    if (player !== p || p.epoch !== epoch) return
+    if (p.mode === 'image' && source !== undefined && !result.deny) lastSource = source
+    if (result.deny) await denied($, p, result.deny)
   } catch {
     // The first frame is not written yet.
   } finally {
@@ -660,10 +673,17 @@ async function frameCells($: EngineInterface, frame: Frame): Promise<string> {
 }
 
 async function denied($: EngineInterface, p: Player, reason: string) {
-  if (p.mode === 'image' && /\balt\b/.test(reason)) {
-    // This terminal draws no pictures (iTerm2): cells from here on.
-    log($, `no pictures here, falling back to cells: ${reason}`)
-    await setShorts($, s => ({ ...s, mode: 'raster' }))
+  if (p.mode === 'image' && reason.startsWith('the Image draws its alt here:')) {
+    if (!p.useRgba) {
+      // Some inline-image renderers accept bytes but cannot read a file source.
+      p.useRgba = true
+      log($, `retrying inline image as RGBA bytes: ${reason}`)
+      return
+    }
+    // Both supported source forms drew alt, so this renderer has no image path.
+    log($, `no inline image support, falling back to cells: ${reason}`)
+    await setShortsAt($, p.epoch, s => ({ ...s, mode: 'raster' }))
+    if (player !== p || p.epoch !== epoch) return
     void play($, p.pos)
     return
   }

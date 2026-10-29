@@ -399,6 +399,198 @@ test('replay plays the Short on screen again from the start', async ($, on) => {
   await ui.unmount()
 })
 
+test('file-source denial retries as RGBA bytes and keeps that transport for later frames', async ($, on) => {
+  const clock = mock.clock(on)
+  const short = { id: 'abc123', title: 'A title', author: 'Someone', duration: 30, hasAudio: true, path: '/tmp/abc123.mp4' }
+  let value: unknown = { ...EMPTY, queue: [short.id], shorts: { [short.id]: short }, status: 'paused' }
+  let version = 1
+  on('state.get', () => ({ value: { value, version } }))
+  on('state.set', (_, e) => {
+    if (e.ifVersion !== undefined && e.ifVersion !== version) return { value: { isSet: false, version } }
+    value = e.value
+    return { value: { isSet: true, version: ++version } }
+  })
+  on('process.run', () => ran(0))
+  on('fs.exists', () => ({ value: true }))
+  on('ui.log', () => ({ value: undefined }))
+  on('ui.toast', () => ({ value: undefined }))
+  on('ui.close', () => ({ value: undefined }))
+  mock.store(on)
+  on('process.spawn', async function* () {
+    await clock.sleep(60_000)
+    return { value: { code: 0, signal: null } }
+  })
+
+  const sources: Record<string, unknown>[] = []
+  let fileSize: { width: number; height: number } | undefined
+  let readFailedOnce = false
+  let rgbaCalls = 0
+  on('ui.blit', (_, e) => {
+    if (!('source' in e)) return { value: {} }
+    const source = e.source as Record<string, unknown>
+    sources.push(source)
+    if ('file' in source) {
+      fileSize = { width: source.width as number, height: source.height as number }
+      return { value: { deny: 'the Image draws its alt here: this renderer cannot read file-backed images' } }
+    }
+    if ('rgba' in source && ++rgbaCalls === 2) return { value: { deny: 'RGBA frame has an invalid byte length' } }
+    return { value: {} }
+  })
+  on('fs.read', () => {
+    if (!readFailedOnce) {
+      readFailedOnce = true
+      throw new Error('frame is being rewritten')
+    }
+    if (fileSize === undefined) throw new Error('portable image requested before file source')
+    return { value: { base64: new Uint8Array(fileSize.width * fileSize.height * 3).toBase64() } }
+  })
+
+  const smallPane = { ...PANE, props: { ...PANE.props, bodyColumns: 4, scroll: { offset: 0, bodyRows: 8 } } }
+  const ui = await $.ui.mount({ plugin: 'cc-shorts', surface: 'terminal', ...smallPane })
+  await ui.press({ key: 'replay' })
+  await clock.advance(33)
+  await clock.advance(33)
+  expect(value).not.toHaveProperty('mode', 'raster')
+  await clock.advance(33)
+  await clock.advance(33)
+  const portable = sources.find(source => 'rgba' in source)
+  expect(portable).toBeDefined()
+  expect(portable?.width).toBe(fileSize?.width)
+  expect(portable?.height).toBe(fileSize?.height)
+  expect(Uint8Array.fromBase64(portable?.rgba as string)).toHaveLength((fileSize?.width ?? 0) * (fileSize?.height ?? 0) * 4)
+  expect(value).not.toHaveProperty('mode', 'raster')
+
+  const sourceCount = sources.length
+  await clock.advance(33)
+  expect(sources.length).toBeGreaterThan(sourceCount)
+  expect(sources.slice(sourceCount).every(source => 'rgba' in source)).toBe(true)
+  const lastAccepted = sources.at(-1)
+  await ui.unmount()
+  const redrawn = await $.ui.mount({ plugin: 'cc-shorts', surface: 'terminal', ...smallPane })
+  const redrawnImage = await redrawn.find({ type: 'Image' })
+  const redrawnSource = redrawnImage?.props.source as Record<string, unknown> | undefined
+  expect(redrawnSource?.rgba === lastAccepted?.rgba).toBe(true)
+  expect(redrawnSource?.width).toBe(lastAccepted?.width)
+  expect(redrawnSource?.height).toBe(lastAccepted?.height)
+  await redrawn.press({ key: 'close' })
+  await redrawn.unmount()
+})
+
+test('falls back to raster only when both file and RGBA images draw their alt', async ($, on) => {
+  const clock = mock.clock(on)
+  const short = { id: 'abc123', title: 'A title', author: 'Someone', duration: 30, hasAudio: true, path: '/tmp/abc123.mp4' }
+  let value: unknown = { ...EMPTY, queue: [short.id], shorts: { [short.id]: short }, status: 'paused' }
+  let version = 1
+  on('state.get', () => ({ value: { value, version } }))
+  on('state.set', (_, e) => {
+    if (e.ifVersion !== undefined && e.ifVersion !== version) return { value: { isSet: false, version } }
+    value = e.value
+    return { value: { isSet: true, version: ++version } }
+  })
+  on('process.run', () => ran(0))
+  on('fs.exists', () => ({ value: true }))
+  on('ui.log', () => ({ value: undefined }))
+  on('ui.close', () => ({ value: undefined }))
+  mock.store(on)
+  const ffmpeg: (readonly string[])[] = []
+  on('process.spawn', async function* (_, e) {
+    ffmpeg.push(e.argv)
+    await clock.sleep(60_000)
+    return { value: { code: 0, signal: null } }
+  })
+
+  const kinds: string[] = []
+  let dimensions: { width: number; height: number } | undefined
+  on('ui.blit', (_, e) => {
+    if ('source' in e) {
+      if ('file' in e.source) {
+        kinds.push('file')
+        dimensions = { width: e.source.width, height: e.source.height }
+        return { value: { deny: 'the Image draws its alt here: this renderer cannot read file-backed images' } }
+      }
+      if ('rgba' in e.source) {
+        kinds.push('rgba')
+        return { value: { deny: 'the Image draws its alt here: this terminal cannot draw inline images' } }
+      }
+    } else {
+      kinds.push('cells')
+    }
+    return { value: {} }
+  })
+  on('fs.read', () => {
+    if (dimensions === undefined) throw new Error('portable image requested before file source')
+    return { value: { base64: new Uint8Array(dimensions.width * dimensions.height * 3).toBase64() } }
+  })
+
+  const ui = await $.ui.mount({ plugin: 'cc-shorts', surface: 'terminal', ...PANE })
+  await ui.press({ key: 'replay' })
+  await clock.advance(33)
+  await clock.advance(33)
+  await clock.advance(33)
+  expect(kinds).toContain('rgba')
+  expect(kinds).toContain('cells')
+  expect(value).toEqual(expect.objectContaining({ mode: 'raster' }))
+  expect(ffmpeg.filter(argv => argv[0] === 'ffmpeg')).toHaveLength(2)
+  await ui.press({ key: 'close' })
+  await ui.unmount()
+})
+
+test('a stale image denial after skipping cannot change the next player transport', async ($, on) => {
+  const clock = mock.clock(on)
+  const one = { id: 'one', title: 'One', author: 'Someone', duration: 30, hasAudio: true, path: '/tmp/one.mp4' }
+  const two = { ...one, id: 'two', title: 'Two', path: '/tmp/two.mp4' }
+  let value: unknown = { ...EMPTY, queue: ['one', 'two'], shorts: { one, two }, status: 'paused' }
+  let version = 1
+  on('state.get', () => ({ value: { value, version } }))
+  on('state.set', (_, e) => {
+    if (e.ifVersion !== undefined && e.ifVersion !== version) return { value: { isSet: false, version } }
+    value = e.value
+    return { value: { isSet: true, version: ++version } }
+  })
+  on('process.run', () => ran(0))
+  on('fs.exists', () => ({ value: true }))
+  on('ui.log', () => ({ value: undefined }))
+  on('ui.close', () => ({ value: undefined }))
+  mock.store(on)
+  on('process.spawn', async function* () {
+    await clock.sleep(60_000)
+    return { value: { code: 0, signal: null } }
+  })
+
+  let enterFirstBlit!: () => void
+  const firstBlitEntered = new Promise<void>(resolve => { enterFirstBlit = resolve })
+  let releaseFirstBlit!: (result: { value: { deny: string } }) => void
+  let deferFirst = true
+  const sources: Record<string, unknown>[] = []
+  on('ui.blit', (_, e) => {
+    if (!('source' in e)) return { value: {} }
+    const source = e.source as Record<string, unknown>
+    sources.push(source)
+    if ('file' in source && deferFirst) {
+      deferFirst = false
+      enterFirstBlit()
+      return new Promise(resolve => { releaseFirstBlit = resolve })
+    }
+    return { value: {} }
+  })
+
+  const ui = await $.ui.mount({ plugin: 'cc-shorts', surface: 'terminal', ...PANE })
+  await ui.press({ key: 'replay' })
+  const oldTick = clock.advance(33)
+  await firstBlitEntered
+  await ui.press({ key: 'next' })
+  releaseFirstBlit({ value: { deny: 'the Image draws its alt here: unsupported image source' } })
+  await oldTick
+  await clock.advance(33)
+
+  expect(value).toEqual(expect.objectContaining({ cur: 1 }))
+  expect(value).not.toHaveProperty('mode', 'raster')
+  expect(sources.filter(source => 'file' in source)).toHaveLength(2)
+  expect(sources.some(source => 'rgba' in source)).toBe(false)
+  await ui.press({ key: 'close' })
+  await ui.unmount()
+})
+
 test('a skip while ffmpeg is still starting: only the Short skipped to plays', async ($, on) => {
   const clock = mock.clock(on)
   // The first `mkdir` takes a second of the mocked clock: the skip lands while it runs.
