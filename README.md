@@ -10,7 +10,7 @@ cc-shorts supports Linux distributions using Wayland or X11, including Arch, Deb
 - `yt-dlp`, FFmpeg, and Python 3. Deno 2.3 or newer is recommended for yt-dlp's YouTube JavaScript challenge solver; clips can still work without it, but some downloads may fail or have fewer formats.
 - A browser signed in to YouTube. Chromium or Firefox are recommended.
 - On Linux, `xdg-utils` (for `xdg-open`) is needed to open Shorts in your default browser.
-- For sharp inline frames, use Kitty or Ghostty. Claude Code's inline image path works in these terminals. Foot uses Sixel, which the current Claude Code image pane does not render, so Foot displays the lower-resolution colored-block fallback.
+- Sharp inline video works on Kitty, Ghostty, and compatible iTerm2 setups. Fish is a shell; the terminal app determines image support. Other setups may use a pixelated colored-block fallback. This image pane does not support Sixel.
 - A working audio service: PipeWire with its PulseAudio compatibility service (`pipewire-pulse`), PulseAudio, or ALSA.
 
 ## Install dependencies on Linux
@@ -94,7 +94,7 @@ claude plugin marketplace add Abhinav21110/claude-code-shorts
 claude plugin install cc-shorts@cc-shorts
 ```
 
-Then launch Claude Code from Kitty or Ghostty for the sharpest inline video.
+For sharp inline video, launch Claude Code in Kitty, Ghostty, or a compatible iTerm2 setup. If your terminal cannot display inline images, press `o` to open the Short in your browser for sharp playback.
 
 To run from a local checkout instead (for development):
 
@@ -152,7 +152,7 @@ The picture stays within 50 columns by 40 rows, however large your terminal is.
 
 - **Signed out:** sign in to YouTube in the selected browser, then run `/shorts browser` and select it again.
 - **Cannot read Chromium cookies:** unlock GNOME Keyring or KWallet. If the error persists, use Firefox with `/shorts browser`.
-- **The image looks like colored blocks:** launch Claude Code from Kitty or Ghostty, which support the inline image protocol used by Claude Code. Foot's Sixel support is not currently used by Claude Code's image pane.
+- **The image looks like colored blocks:** the lower-resolution raster fallback is inherently pixelated. The player automatically retries with inline image bytes if file-based frames are rejected before falling back to blocks. Use Kitty, Ghostty, or a compatible iTerm2 setup for sharp inline frames; this image pane does not support Sixel. Press `o` to open the Short in your browser for sharp playback.
 - **Downloads fail:** check the network and press `j` to retry.
 - **Every download fails on Kali/Debian:** update `yt-dlp`, verify Deno is at least 2.3 with `deno --version`, and confirm Claude Code was started from a shell that can run `deno`. If it still fails, the actual yt-dlp error is in Claude Code's debug log; include its last error lines when asking for help.
 - **A required tool appears missing:** Claude Code may have a different `PATH` from your interactive shell. Start it from a shell where `yt-dlp`, `ffmpeg`, `python3`, and `deno` are available. The `/shorts` setup prompt detects apt, dnf, pacman, zypper, and apk when offering Linux package installation.

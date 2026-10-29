@@ -10,7 +10,7 @@
     {
       "name": "cc-shorts",
       "description": "Play YouTube Shorts in your Claude Code",
-      "version": "0.1.3",
+      "version": "0.1.4",
       "source": "./",
       "category": "entertainment"
     }
