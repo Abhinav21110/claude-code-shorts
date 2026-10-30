@@ -196,6 +196,34 @@ test('before anything plays: the hint, and the eight keys', async $ => {
   await ui.unmount()
 })
 
+test('/shorts help shows controls and commands without setup or playback', async ($, on) => {
+  const prompts: { question: string; options: string[] }[] = []
+  const processes: string[][] = []
+  const opened: string[] = []
+  on('tool.call', { tool: 'AskUserQuestion' }, (_, e) => {
+    const q = e.questions[0]
+    prompts.push({ question: q?.question ?? '', options: (q?.options ?? []).map(o => o.label) })
+    return { result: { questions: e.questions, answers: { [q?.question ?? '']: 'Got it' } } }
+  })
+  on('process.run', (_, e) => {
+    processes.push([...e.argv])
+    return ran(0)
+  })
+  on('ui.open', (_, e) => {
+    opened.push(e.id)
+    return { value: { isPlaced: true } }
+  })
+  await $.command.run({ ...SHORTS, args: 'help' })
+
+  expect(prompts).toHaveLength(1)
+  expect(prompts[0]?.options).toContain('Got it')
+  expect(prompts[0]?.question).toContain('j next, k previous, p pause/resume, r replay, l like, m mute, o open in browser, x close')
+  expect(prompts[0]?.question).toContain('/shorts browser')
+  expect(prompts[0]?.question).toContain('/shorts install')
+  expect(processes).toEqual([])
+  expect(opened).toEqual([])
+})
+
 test('the Short to play downloads first, and skipped or closed ones never do', async ($, on) => {
   const clock = mock.clock(on)
   // Each download takes a second of the mocked clock, so the test says when it ends.

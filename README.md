@@ -110,6 +110,8 @@ Inside Claude Code:
 2. Choose Firefox (the default), Zen, Chromium, or another listed browser, then sign in to YouTube in that browser if needed.
 3. Run `/shorts` again if browser sign-in or setup was not complete.
 
+Run `/shorts help` at any time to see the keyboard controls and the `/shorts browser` and `/shorts install` commands.
+
 You can start Claude Code from another directory by passing the full plugin path:
 
 ```sh

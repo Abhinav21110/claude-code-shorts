@@ -195,7 +195,7 @@ export const register: Register = on => {
     await $.command.register({
       name: 'shorts',
       description: 'Play YouTube Shorts in your Claude Code',
-      argumentHint: '[browser | install]',
+      argumentHint: '[help | browser | install]',
     })
     // Downloads of sessions that ended without cleaning up (a crash).
     // prettier-ignore
@@ -231,6 +231,13 @@ export const register: Register = on => {
   })
 
   on('command.run', { command: 'shorts' }, async ($, e) => {
+    if (e.args.trim() === 'help') {
+      await $.ui.ask(
+        'Shorts controls (focus the pane): j next, k previous, p pause/resume, r replay, l like, m mute, o open in browser, x close.\nCommands: /shorts browser changes the YouTube account; /shorts install shows dependency install commands.',
+        { header: 'cc-shorts', options: ['Got it'] },
+      ).catch(() => '')
+      return {}
+    }
     if (e.args.trim() === 'install') {
       await showInstall($)
       return {}
