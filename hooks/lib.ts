@@ -242,10 +242,10 @@ export function browserQuestion(here: readonly Browser[], current: string, platf
   const offered = browserOptions(here, current)
   const others = here.filter(b => !offered.includes(b.name)).map(b => b.name)
   const [are, it] = others.length > 1 ? ['are', 'one'] : ['is', 'it']
-  const place = platform === 'linux' ? 'on this Linux system' : 'on this Mac'
+  const system = platform === 'linux' ? 'this Linux system' : 'this Mac'
+  const place = `on ${system}`
   const more = others.length > 0 ? ` ${nameList(others)} ${are} ${place} too: type ${it} in.` : ''
   const safari = offered.includes('Safari') ? ' Picking Safari means giving your terminal Full Disk Access.' : ''
-  const system = platform === 'linux' ? 'this Linux system' : 'this Mac'
   return `Which browser are you signed in to YouTube with? cc-shorts reads your feed through its cookies on ${system}.${more}${safari}`
 }
 
